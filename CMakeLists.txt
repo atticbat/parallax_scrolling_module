@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.0)
 #set vars: name and sources
 set(PROJECT_NAME "parallax_scrolling")
 set(SRC_FILES src/parallax_scrolling.cpp)
+add_library(PSM EXCLUDE_FROM_ALL ${SRC_FILES})
 #compiling DevIL for image display
 include(ExternalProject)
 #DevIL dependencies v---------------v
@@ -14,7 +15,7 @@ if (NOT EXISTS "${LIBPNG_PATH}")
 		PREFIX			${LIBPNG_PATH}
 	)
 endif()
-include_directories(build/${LIBPNG_PATH})
+target_include_directories(PSM PRIVATE build/${LIBPNG_PATH})
 set(ZLIB_URL "https://git.tukaani.org/xz.git")
 set(ZLIB_PATH ZLIB)
 if (NOT EXISTS "${ZLIB_PATH}")
@@ -23,7 +24,7 @@ if (NOT EXISTS "${ZLIB_PATH}")
 		PREFIX			${ZLIB_PATH}
 	)
 endif()
-include_directories(build/${ZLIB_PATH})
+target_include_directories(PSM PRIVATE build/${ZLIB_PATH})
 set(LIBJPEG_URL "https://github.com/csparker247/jpeg-cmake.git")
 set(LIBJPEG_PATH LIBJPEG)
 if (NOT EXISTS "${LIBJPEG_PATH}")
@@ -32,7 +33,7 @@ if (NOT EXISTS "${LIBJPEG_PATH}")
 		PREFIX			${LIBJPEG_PATH}
 	)
 endif()
-include_directories(build/${LIBJPEG_PATH})
+target_include_directories(PSM PRIVATE build/${LIBJPEG_PATH})
 set(LIBTIFF_URL "https://gitlab.com/libtiff/libtiff.git")
 set(LIBTIFF_PATH LIBTIFF)
 if (NOT EXISTS "${LIBTIFF_PATH}")
@@ -41,7 +42,7 @@ if (NOT EXISTS "${LIBTIFF_PATH}")
 		PREFIX			${LIBTIFF_PATH}
 	)
 endif()
-include_directories(build/${LIBTIFF_PATH})
+target_include_directories(PSM PRIVATE build/${LIBTIFF_PATH})
 #[=[
 Little-CMS is a problematic repository to work with because:
 [[
@@ -68,8 +69,19 @@ if (NOT EXISTS "${LCMS_PATH}")
 		INSTALL_COMMAND		""
 		CONFIGURE_COMMAND	sh ./../${LCMS_PATH}/configure
 	)
+	ExternalProject_Add_Step(${LCMS_PATH} CHANGE_NAME
+		WORKING_DIRECTORY	"${LCMS_PATH}/src/${LCMS_PATH}-build/src/.libs/"
+		DEPENDEES		build
+		COMMAND			make -C ../../
+		COMMAND			mv ../liblcms2.la ../liblcms.la
+		COMMAND			mv liblcms2.dylib liblcms.dylib
+		COMMAND			mv liblcms2.la liblcms.la
+		COMMAND			mv liblcms2.a liblcms.a
+		COMMAND			mv liblcms2.lai liblcms.lai
+		COMMAND			mv ../../../${LCMS_PATH}/include/lcms2.h ../../../${LCMS_PATH}/include/lcms.h 
+	)
 endif()
-include_directories(build/${LCMS_PATH})
+target_include_directories(PSM PRIVATE build/${LCMS_PATH})
 set(LIBMNG_URL "https://github.com/LuaDist/libmng.git")
 set(LIBMNG_PATH LIBMNG)
 if (NOT EXISTS "${LIBMNG_PATH}")
@@ -78,12 +90,12 @@ if (NOT EXISTS "${LIBMNG_PATH}")
 		PREFIX			${LIBMNG_PATH}
 	)
 endif()
-include_directories(build/${LIBMNG_PATH})
-
+#never got past this point xdd
+target_include_directories(PSM PRIVATE build/${LIBMNG_PATH})
 #set(MNG_INCLUDE_DIR ${LIBMNG_PATH} CACHE PATH "" FORCE)
 #set(LCMS_INCLUDE_DIR ${LITTLECMS_PATH} CACHE PATH "" FORCE)
 #DevIL dependencies ^---------------^
-include_directories(includes)
+target_include_directories(PSM PRIVATE includes)
 #set name of executable
 project(${PROJECT_NAME})
 #both these should already exist
@@ -98,14 +110,15 @@ if (NOT EXISTS "${DEVIL_PATH}")
 		PREFIX			${DEVIL_PATH}	#sets root directory for external project
 #		CMAKE_ARGS		-D MNG_INCLUDE_DIR:PATH=${LIBMNG_PATH}, -D LCMS_INCLUDE_DIR:PATH=${LCMS_PATH}, -D CMAKE_MACOSX_RPATH=ON
 	)
+	ExternalProject_Add_StepDependencies(${DEVIL_PATH}
+		build			LCMS_LIB
+	)
 endif()
-include_directories(build/${DEVIL_PATH}/src-IL/include)
+target_include_directories(PSM PRIVATE build/${DEVIL_PATH}/src-IL/include)
 #add_compile_options(-std=c++14)
 add_executable(${PROJECT_NAME} ${SRC_FILES})
 #look into what this does exactly
 set_property(TARGET ${PROJECT_NAME} APPEND_STRING PROPERTY LINK_FLAGS "-framework OpenGl")
 #I assume this should add DevIL to the global env for my program
 file(GLOB DEVIL_LIB "build/${DEVIL_PATH}/src/${DEVIL_PATH}-build/lib/libIL.dylib")
-#file(GLOB SDL_LIB "build/${SDL_PATH}/src/${SDL_PATH}-build/libSDL2.dylib")
-#file(GLOB LCMS_LIB "build/${LCMS_PATH}/src/${LCMS_PATH}-build/libSDL2.dylib")
 target_link_libraries(${PROJECT_NAME} ${DEVIL_LIB})
